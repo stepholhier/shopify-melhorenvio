@@ -10,10 +10,14 @@ app.use(express.json());
 const CEP_ORIGEM = "80250-070"; // Substitua pelo CEP da sua loja
 const ACCESS_TOKEN = process.env.MELHOR_ENVIO_TOKEN; // Pegando o token do Railway
 
-// 🚀 Verifica se o token está disponível
-if (!ACCESS_TOKEN) {
-  console.error("❌ ERRO: Variável MELHOR_ENVIO_TOKEN não foi carregada. Verifique no Railway.");
-}
+// ✅ Rota para testar se a API está funcionando
+app.get("/status", (req, res) => {
+  res.json({
+    status: "API rodando 🚀",
+    melhorEnvioToken: ACCESS_TOKEN ? "✅ Token carregado" : "❌ Token não carregado!",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // ✅ Função para calcular o frete via Melhor Envio
 async function calcularFreteMelhorEnvio(cepDestino, peso) {
@@ -35,7 +39,7 @@ async function calcularFreteMelhorEnvio(cepDestino, peso) {
         insurance_value: 100
       }
     ],
-    services: ["1", "2"], // Serviços (verificar quais são válidos)
+    services: ["1", "2"], // Serviços de entrega (ajustar conforme necessidade)
     options: { receipt: false, own_hand: false, collect: false }
   };
 
