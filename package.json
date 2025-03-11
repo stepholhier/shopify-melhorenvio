@@ -1,14 +1,15 @@
 {
-  "name": "melhor-envio-api",
+  "name": "shopify-frete",
   "version": "1.0.0",
-  "description": "API Shopify + Melhor Envio",
+  "description": "API para cálculo de frete usando Shopify + Correios",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "express": "^4.17.1",
     "cors": "^2.8.5",
-    "node-fetch": "^2.6.1"
-  },
-  "scripts": {
-    "start": "node server.js"
+    "node-fetch": "^2.6.1",
+    "xml2js": "^0.4.23"
   }
 }
