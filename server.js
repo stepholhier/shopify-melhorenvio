@@ -8,7 +8,12 @@ app.use(express.json());
 
 const MELHOR_ENVIO_TOKEN = process.env.MELHOR_ENVIO_TOKEN; // Agora pegamos do Railway
 
-// Testar se o token está válido
+// ✅ Rota para testar se o servidor está rodando
+app.get("/", (req, res) => {
+  res.send("🚀 API Shopify + Melhor Envio rodando com sucesso!");
+});
+
+// ✅ Testar se o token do Melhor Envio está válido
 app.get("/me", async (req, res) => {
   try {
     const response = await fetch("https://api.melhorenvio.com.br/v2/me", {
@@ -26,7 +31,7 @@ app.get("/me", async (req, res) => {
   }
 });
 
-// Calcular frete
+// ✅ Calcular frete
 app.post("/calcular-frete", async (req, res) => {
   try {
     const { cepOrigem, cepDestino, peso, largura, altura, comprimento } = req.body;
@@ -54,8 +59,8 @@ app.post("/calcular-frete", async (req, res) => {
   }
 });
 
-// Iniciar o servidor
+// ✅ Iniciar o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
