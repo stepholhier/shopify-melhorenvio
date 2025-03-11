@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
-const { parseString } = require("xml2js");
+const xml2js = require("xml2js");
 
 const app = express();
 app.use(cors());
@@ -53,7 +53,7 @@ app.post("/calcular-frete", async (req, res) => {
     const xml = await response.text();
 
     // ✅ Converter XML para JSON
-    parseString(xml, (err, result) => {
+    xml2js.parseString(xml, (err, result) => {
       if (err) {
         console.error("❌ Erro ao processar XML:", err);
         return res.status(500).json({ error: "Erro ao processar XML dos Correios" });
@@ -62,22 +62,17 @@ app.post("/calcular-frete", async (req, res) => {
       console.log("📦 Resposta dos Correios:", JSON.stringify(result, null, 2));
 
       // ✅ Extraindo as informações de SEDEX e PAC
-      const servicos = result.Servicos?.cServico;
-      if (!servicos) {
+      const servicos = result?.Servicos?.cServico || [];
+
+      if (!Array.isArray(servicos)) {
         return res.status(500).json({ error: "Erro ao obter os serviços dos Correios" });
       }
 
-      const frete = [];
-
-      servicos.forEach(servico => {
-        if (servico.Valor && servico.PrazoEntrega) {
-          frete.push({
-            servico: servico.Codigo[0] === "04014" ? "SEDEX" : "PAC",
-            valor: `R$ ${servico.Valor[0]}`,
-            prazo: `${servico.PrazoEntrega[0]} dias úteis`
-          });
-        }
-      });
+      const frete = servicos.map(servico => ({
+        servico: servico.Codigo[0] === "04014" ? "SEDEX" : "PAC",
+        valor: `R$ ${servico.Valor[0]}`,
+        prazo: `${servico.PrazoEntrega[0]} dias úteis`
+      }));
 
       res.json(frete);
     });
