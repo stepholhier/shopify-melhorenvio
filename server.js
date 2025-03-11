@@ -13,9 +13,10 @@ app.get("/", (req, res) => {
   res.send("🚀 API Shopify + Melhor Envio rodando com sucesso!");
 });
 
-// ✅ Testar se o token do Melhor Envio está válido
 app.get("/me", async (req, res) => {
   try {
+    console.log("🔍 Testando a API do Melhor Envio...");
+
     const response = await fetch("https://api.melhorenvio.com.br/v2/me", {
       method: "GET",
       headers: {
@@ -25,12 +26,18 @@ app.get("/me", async (req, res) => {
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ Erro na API do Melhor Envio:", data);
+      return res.status(response.status).json({ error: data });
+    }
+
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: "Erro ao buscar dados do Melhor Envio" });
+    console.error("❌ Erro na requisição:", error);
+    res.status(500).json({ error: "Erro ao buscar dados do Melhor Envio", detalhes: error.message });
   }
 });
-
 // ✅ Calcular frete
 app.post("/calcular-frete", async (req, res) => {
   try {
