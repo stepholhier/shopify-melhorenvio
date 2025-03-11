@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
-require("dotenv").config(); // Permite usar variáveis de ambiente
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
@@ -10,7 +10,12 @@ app.use(express.json());
 const CEP_ORIGEM = "80250-070"; // Substitua pelo CEP da sua loja
 const ACCESS_TOKEN = process.env.MELHOR_ENVIO_TOKEN; // Pegando o token do Railway
 
-// Função para calcular o frete via Melhor Envio
+// 🚀 Verifica se o token está disponível
+if (!ACCESS_TOKEN) {
+  console.error("❌ ERRO: Variável MELHOR_ENVIO_TOKEN não foi carregada. Verifique no Railway.");
+}
+
+// ✅ Função para calcular o frete via Melhor Envio
 async function calcularFreteMelhorEnvio(cepDestino, peso) {
   if (!ACCESS_TOKEN) {
     throw new Error("❌ Token do Melhor Envio não está definido nas variáveis de ambiente!");
@@ -23,16 +28,19 @@ async function calcularFreteMelhorEnvio(cepDestino, peso) {
     to: { postal_code: cepDestino },
     products: [
       {
-        weight: peso, 
-        width: 11, // Ajuste conforme necessário
-        height: 17, 
-        length: 11, 
+        weight: peso,
+        width: 11,
+        height: 17,
+        length: 11,
         insurance_value: 100
       }
     ],
-    services: ["1", "2"], // Serviços de entrega (ajustar conforme necessidade)
+    services: ["1", "2"], // Serviços (verificar quais são válidos)
     options: { receipt: false, own_hand: false, collect: false }
   };
+
+  console.log("📡 Enviando requisição para Melhor Envio...");
+  console.log("🔹 Payload:", JSON.stringify(body, null, 2));
 
   try {
     const response = await fetch(url, {
@@ -46,10 +54,14 @@ async function calcularFreteMelhorEnvio(cepDestino, peso) {
     });
 
     if (!response.ok) {
-      throw new Error(`Erro ao calcular frete: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ Erro ao chamar Melhor Envio (${response.status}):`, errorText);
+      throw new Error(`Erro Melhor Envio: ${errorText}`);
     }
 
     const data = await response.json();
+    console.log("✅ Resposta do Melhor Envio:", JSON.stringify(data, null, 2));
+
     return data;
   } catch (error) {
     console.error("❌ Erro ao chamar a API do Melhor Envio:", error);
@@ -57,7 +69,7 @@ async function calcularFreteMelhorEnvio(cepDestino, peso) {
   }
 }
 
-// Rota para calcular o frete
+// ✅ Rota para calcular o frete
 app.post("/calcular-frete", async (req, res) => {
   try {
     console.log("🔍 Recebendo requisição de frete:", req.body);
@@ -76,7 +88,7 @@ app.post("/calcular-frete", async (req, res) => {
   }
 });
 
-// Iniciar o servidor
+// ✅ Expor a porta corretamente para Railway
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
