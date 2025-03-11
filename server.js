@@ -1,7 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch");
-const xml2js = require("xml2js");
 
 const app = express();
 app.use(cors());
@@ -9,77 +7,51 @@ app.use(express.json());
 
 const CEP_ORIGEM = "80250-070"; // Substitua pelo CEP da sua loja
 
+// 🔹 Função para calcular o frete manualmente
+function calcularFreteManual(cepDestino, peso) {
+  const precos = [
+    { maxPeso: 1, pac: 20.00, sedex: 30.00, prazoPac: 5, prazoSedex: 2 },
+    { maxPeso: 5, pac: 30.00, sedex: 40.00, prazoPac: 7, prazoSedex: 3 },
+    { maxPeso: 10, pac: 50.00, sedex: 70.00, prazoPac: 10, prazoSedex: 5 },
+    { maxPeso: 20, pac: 80.00, sedex: 120.00, prazoPac: 12, prazoSedex: 6 },
+    { maxPeso: 30, pac: 120.00, sedex: 180.00, prazoPac: 15, prazoSedex: 7 }
+  ];
+
+  // Encontra a faixa de preço correspondente ao peso
+  const faixa = precos.find(p => peso <= p.maxPeso);
+
+  if (!faixa) {
+    return [{ servico: "Transportadora", valor: "R$ 250,00", prazo: "15 dias úteis" }];
+  }
+
+  return [
+    { servico: "PAC", valor: `R$ ${faixa.pac.toFixed(2)}`, prazo: `${faixa.prazoPac} dias úteis` },
+    { servico: "SEDEX", valor: `R$ ${faixa.sedex.toFixed(2)}`, prazo: `${faixa.prazoSedex} dias úteis` }
+  ];
+}
+
 // ✅ Rota para testar se o servidor está rodando
 app.get("/", (req, res) => {
-  res.send("🚀 API Shopify + Correios rodando com sucesso!");
+  res.send("🚀 API Shopify + Frete Manual rodando com sucesso!");
 });
 
-// ✅ Rota para calcular o frete com os Correios
-app.post("/calcular-frete", async (req, res) => {
+// ✅ Rota para calcular o frete manualmente
+app.post("/calcular-frete", (req, res) => {
   try {
     console.log("🔍 Recebendo requisição de frete:", req.body);
 
-    const { cepDestino, peso, largura, altura, comprimento } = req.body;
+    const { cepDestino, peso } = req.body;
 
-    // ✅ Validação dos dados recebidos
-    if (!cepDestino || !peso || !largura || !altura || !comprimento) {
-      return res.status(400).json({ error: "Todos os campos são obrigatórios!" });
+    if (!cepDestino || !peso) {
+      return res.status(400).json({ error: "CEP de destino e peso são obrigatórios!" });
     }
 
-    // ✅ Codificação da URL com os parâmetros exigidos pelos Correios
-    const urlCorreios = `https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx?` +
-      `nCdEmpresa=&sDsSenha=&nCdServico=04014,04510` + // SEDEX e PAC
-      `&sCepOrigem=${CEP_ORIGEM}` +
-      `&sCepDestino=${cepDestino}` +
-      `&nVlPeso=${peso}` +
-      `&nCdFormato=1` + // 1 = Caixa/Pacote
-      `&nVlComprimento=${comprimento}` +
-      `&nVlAltura=${altura}` +
-      `&nVlLargura=${largura}` +
-      `&nVlDiametro=0` +
-      `&sCdMaoPropria=N` +
-      `&nVlValorDeclarado=0` +
-      `&sCdAvisoRecebimento=N` +
-      `&StrRetorno=xml`;
-
-    console.log("🔗 Chamando a API dos Correios:", urlCorreios);
-
-    // ✅ Fazendo a requisição para a API dos Correios
-    const response = await fetch(urlCorreios);
-    if (!response.ok) {
-      throw new Error(`Correios retornou erro HTTP ${response.status}`);
-    }
-
-    const xml = await response.text();
-
-    // ✅ Converter XML para JSON
-    xml2js.parseString(xml, (err, result) => {
-      if (err) {
-        console.error("❌ Erro ao processar XML:", err);
-        return res.status(500).json({ error: "Erro ao processar XML dos Correios" });
-      }
-
-      console.log("📦 Resposta dos Correios:", JSON.stringify(result, null, 2));
-
-      // ✅ Extraindo as informações de SEDEX e PAC
-      const servicos = result?.Servicos?.cServico || [];
-
-      if (!Array.isArray(servicos)) {
-        return res.status(500).json({ error: "Erro ao obter os serviços dos Correios" });
-      }
-
-      const frete = servicos.map(servico => ({
-        servico: servico.Codigo[0] === "04014" ? "SEDEX" : "PAC",
-        valor: `R$ ${servico.Valor[0]}`,
-        prazo: `${servico.PrazoEntrega[0]} dias úteis`
-      }));
-
-      res.json(frete);
-    });
+    const frete = calcularFreteManual(cepDestino, peso);
+    res.json(frete);
 
   } catch (error) {
     console.error("❌ Erro na requisição:", error);
-    res.status(500).json({ error: "Erro ao calcular frete com os Correios", detalhes: error.message });
+    res.status(500).json({ error: "Erro ao calcular frete manual" });
   }
 });
 
