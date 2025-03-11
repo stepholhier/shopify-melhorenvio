@@ -6,63 +6,73 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const MELHOR_ENVIO_TOKEN = process.env.MELHOR_ENVIO_TOKEN; // Agora pegamos do Railway
+const CEP_ORIGEM = "80250-070"; // Substitua pelo CEP da sua loja
 
 // ✅ Rota para testar se o servidor está rodando
 app.get("/", (req, res) => {
-  res.send("🚀 API Shopify + Melhor Envio rodando com sucesso!");
+  res.send("🚀 API Shopify + Correios rodando com sucesso!");
 });
 
-app.get("/me", async (req, res) => {
-  try {
-    console.log("🔍 Testando a API do Melhor Envio...");
-
-    const response = await fetch("https://api.melhorenvio.com.br/v2/me", {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${MELHOR_ENVIO_TOKEN}`,
-        "Content-Type": "application/json"
-      }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("❌ Erro na API do Melhor Envio:", data);
-      return res.status(response.status).json({ error: data });
-    }
-
-    res.json(data);
-  } catch (error) {
-    console.error("❌ Erro na requisição:", error);
-    res.status(500).json({ error: "Erro ao buscar dados do Melhor Envio", detalhes: error.message });
-  }
-});
-// ✅ Calcular frete
+// ✅ Rota para calcular o frete com os Correios
 app.post("/calcular-frete", async (req, res) => {
   try {
-    const { cepOrigem, cepDestino, peso, largura, altura, comprimento } = req.body;
+    const { cepDestino, peso, largura, altura, comprimento } = req.body;
 
-    const response = await fetch("https://api.melhorenvio.com.br/v2/calculator", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${MELHOR_ENVIO_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: { postal_code: cepOrigem },
-        to: { postal_code: cepDestino },
-        products: [
-          { weight: peso, width: largura, height: altura, length: comprimento, quantity: 1 }
-        ],
-        services: [] // Pegará todas as transportadoras disponíveis
-      })
+    // Codificação da URL com os parâmetros exigidos pelos Correios
+    const urlCorreios = `https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx?` +
+      `nCdEmpresa=&sDsSenha=&nCdServico=04014,04510` + // SEDEX e PAC
+      `&sCepOrigem=${CEP_ORIGEM}` +
+      `&sCepDestino=${cepDestino}` +
+      `&nVlPeso=${peso}` +
+      `&nCdFormato=1` + // 1 = Caixa/Pacote
+      `&nVlComprimento=${comprimento}` +
+      `&nVlAltura=${altura}` +
+      `&nVlLargura=${largura}` +
+      `&nVlDiametro=0` +
+      `&sCdMaoPropria=N` +
+      `&nVlValorDeclarado=0` +
+      `&sCdAvisoRecebimento=N` +
+      `&StrRetorno=xml`;
+
+    // Fazendo a requisição para a API dos Correios
+    const response = await fetch(urlCorreios);
+    const xml = await response.text();
+
+    // Converter XML para JSON
+    const parseString = require("xml2js").parseString;
+    parseString(xml, (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: "Erro ao processar XML dos Correios" });
+      }
+
+      // Extraindo as informações de SEDEX e PAC
+      const sedex = result.Servicos.cServico.find(s => s.Codigo[0] === "04014");
+      const pac = result.Servicos.cServico.find(s => s.Codigo[0] === "04510");
+
+      const frete = [];
+
+      if (sedex) {
+        frete.push({
+          servico: "SEDEX",
+          valor: sedex.Valor[0],
+          prazo: `${sedex.PrazoEntrega[0]} dias úteis`
+        });
+      }
+
+      if (pac) {
+        frete.push({
+          servico: "PAC",
+          valor: pac.Valor[0],
+          prazo: `${pac.PrazoEntrega[0]} dias úteis`
+        });
+      }
+
+      res.json(frete);
     });
 
-    const data = await response.json();
-    res.json(data);
   } catch (error) {
-    res.status(500).json({ error: "Erro ao calcular frete" });
+    console.error("❌ Erro na requisição:", error);
+    res.status(500).json({ error: "Erro ao calcular frete com os Correios" });
   }
 });
 
